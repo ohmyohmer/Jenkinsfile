@@ -1,5 +1,12 @@
+#!/usr/bin/env groovy
+
 pipeline{
     agent any
+
+    environment {
+        EMAIL_FOR_BUILD_RESULT = 'ibmdevopsjenkins@gmail.com'
+    }
+
     stages {
         stage('Source') {
             steps {
@@ -45,4 +52,32 @@ pipeline{
             }
         }
     }
+    post {
+        always {
+            sendNotif("${currentBuild.currentResult}");
+        }
+    }
+}
+
+def sendNotif(String status) {
+
+    def colorCode = '#00FF00'
+    def subject = "Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' - BUILD " + status
+    def body = status +": Job ${env.JOB_NAME} [${env.BUILD_NUMBER}]\n More info at: ${env.BUILD_URL}"
+    def slackMessage = "${subject} (${env.BUILD_URL})"
+
+    if(status == 'SUCCESS') {
+        colorCode = '#00FF00'
+    } else if(status == 'FAILURE') {
+        colorCode  = '#FF0000'
+    } else {
+        colorCode = '#000000'
+    }
+
+    slackSend (color: colorCode, message: slackMessage)
+
+    emailext body: body
+            subject: subject, 
+            to: "${env.EMAIL_FOR_BUILD_RESULT}"
+            recipientProviders: [[$class: 'DevelopersRecipientProvider']]
 }

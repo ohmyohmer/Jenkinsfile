@@ -108,6 +108,7 @@ pipeline{
         }
         success {
             echo 'Build -> Test -> Deploy Success!'
+            notifyProdBuilder()
             cleanWs()
         }
         unstable {

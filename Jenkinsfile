@@ -6,7 +6,7 @@ pipeline{
     }
 
     parameters {
-        string(name: 'GIT_BRANCH', defaultValue: 'master', description: 'The branch where source code will be fetch')
+        string(name: 'GIT_BRANCH', defaultValue: 'develop', description: 'The branch where source code will be fetch')
         string(name: 'GIT_SOURCE', defaultValue: 'https://github.com/ohmyohmer/Chat-anonymous', description: 'Source of the source codes.')
         string(name: 'BUILD_APPROVER_EMAIL', defaultValue: 'escuetamichael@gmail.com', description: 'Build Approver Email')
         string(name: 'BUILD_APPROVER_NAME', defaultValue: 'Michael Escueta', description: 'Build Approver Name')

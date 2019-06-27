@@ -8,6 +8,8 @@ pipeline{
     parameters {
         string(name: 'GIT_BRANCH', defaultValue: 'master', description: 'The branch where source code will be fetch')
         string(name: 'GIT_SOURCE', defaultValue: 'https://github.com/ohmyohmer/Chat-anonymous', description: 'Source of the source codes.')
+        string(name: 'BUILD_APPROVER_EMAIL', defaultValue: 'homerrodriguezb@gmail.com', description: 'Build Approver Email')
+        string(name: 'BUILD_APPROVER_NAME', defaultValue: 'Homer Rodriguez', description: 'Build Approver Name')
     }
 
     options {
@@ -97,7 +99,7 @@ pipeline{
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'AWS_STAGING_CREDENTIALS']]) {
                     s3Upload bucket: 'group2-staging.ibm-kapamilya-devops.com', file: "kapamilya-chat", workingDir: 'dist', acl: 'PublicRead'
-                    sh '/usr/bin/aws cloudfront create-invalidation --profile group2 --distribution-id E1KAFIBVBSUAER --paths /*'
+                    sh '/usr/bin/aws cloudfront create-invalidation --distribution-id E1KAFIBVBSUAER --paths /*'
                 }
             }
         }
@@ -108,7 +110,8 @@ pipeline{
         }
         success {
             echo 'Build -> Test -> Deploy Success!'
-            notifyProdBuilder()
+            sendProdApproval()
+            buildStatusNotif("${currentBuild.currentResult}")
             cleanWs()
         }
         unstable {
@@ -116,6 +119,7 @@ pipeline{
         }
         failure {
            echo 'Build -> Test -> Deploy Failed!'
+           buildStatusNotif("${currentBuild.currentResult}")
         }
         changed {
             echo 'Things were different before...'
@@ -123,24 +127,19 @@ pipeline{
     }
 }
 
-def notifyProdBuilder() {
-    def build_url = "https://jenkins-v2.ibm-kapamilya-devops.com/job/GROUP2/job/Chat-CD/buildWithParameters?token=111cfe3797ebf5ca7c12d7f6ba04258408&parent_build_number=${env.BUILD_NUMBER}"
-    def build_message = "Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' need to deploy unto the production. Go to ${build_url} to proceed the deployment."
-    slackSend (color: '#00FF00', message: build_message)
+def buildStatusNotif(String status) {
+    def this_message = "Project Chat - BUILD " + status + ". For more info: '${env.BUILD_URL}'"
+    slackSend (color: '#00FF00', message: this_message)
 }
 
-def sendNotif(String status) {
+def sendProdApproval() {
+    def redirectTo = "https://jenkins-v2.ibm-kapamilya-devops.com/job/GROUP2/job/Chat-CD/${env.BUILD_NUMBER}"
+    def build_url = "https://jenkins-v2.ibm-kapamilya-devops.com/job/GROUP2/job/Chat-CD/buildWithParameters"
+    def build_token = "111cfe3797ebf5ca7c12d7f6ba04258408"
 
-    def colorCode = '#00FF00'
-    def subject = "Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' - BUILD " + status
-    def body = status +": Job ${env.JOB_NAME} [${env.BUILD_NUMBER}]\n More info at: ${env.BUILD_URL}"
-    def slackMessage = "${subject} (${env.BUILD_URL})"
-
-    if(status == 'SUCCESS' || status == 'STARTED' || status == 'ENDED') {
-        colorCode = '#00FF00'
-    } else if(status == 'FAILURE') {
-        colorCode  = '#FF0000'
-    } else {
-        colorCode = '#000000'
-    }  
+    def form = "Hi ${BUILD_APPROVER_NAME}, <p>Job <strong>Project Chat</strong> is ready for deployment.</p>Awaiting for your approval, kindly click the button below to proceed and disregard this email if not so.<p></p><form method='post' action='${build_url}?token=${build_token}&parent_build_number=${env.BUILD_NUMBER}'><input name='crumb' type='hidden' value='68f6099a9b8b4ac0194d03ac6cfae817'><input name='json' type='hidden' value=\"{'parameter': {'name': 'TRIGGERED_FROM_BUILD', 'runId': '${JOB_NAME}#${BUILD_NUMBER}'}, 'statusCode': '303', 'redirectTo': '${redirectTo}'}\" /><input name='Submit' type='submit' value='Deploy' class='submit-button primary' /></form>"
+    def this_subject = "Project Chat for Production Deployment"
+    def this_body = form
+    
+    emailext mimeType: 'text/html', body: this_body, subject: this_subject, to: '${BUILD_APPROVER_EMAIL}'
 }
